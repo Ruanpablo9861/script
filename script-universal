@@ -17,7 +17,7 @@ local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
 
 -- clamp compatível com Lua puro (substitui math.clamp do Luau)
-local function clamp(n, min, max)
+function clamp(n, min, max)
 	if n < min then return min end
 	if n > max then return max end
 	return n
@@ -28,7 +28,7 @@ local isMobile = UserInputService.TouchEnabled and not UserInputService.Keyboard
 local screenSize = camera.ViewportSize
 local scale = clamp(math.min(screenSize.X, screenSize.Y) / 800, 0.75, 1.35)
 
-local function S(n)
+function S(n)
 	return math.floor(n * scale)
 end
 
@@ -117,7 +117,7 @@ pcall(function()
 end)
 
 -- ===================== LOADING =====================
-local function showLoadingScreen(callback)
+function showLoadingScreen(callback)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "TuffoLoading"
 	gui.IgnoreGuiInset = true
@@ -241,7 +241,7 @@ Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
 -- ARRASTE (mobile friendly)
 local dragging, dragStart, startPos = false, nil, nil
 
-local function updateDrag(input)
+function updateDrag(input)
 	local delta = input.Position - dragStart
 	mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
@@ -280,7 +280,7 @@ tabFrame.ScrollingDirection = Enum.ScrollingDirection.X
 tabFrame.CanvasSize = UDim2.new(0, 640, 0, 0)
 tabFrame.Parent = mainFrame
 
-local function createTab(text, order)
+function createTab(text, order)
 	local tab = Instance.new("TextButton")
 	tab.Size = UDim2.new(0, S(74), 1, 0)
 	tab.Position = UDim2.new(0, order * S(76), 0, 0)
@@ -308,7 +308,7 @@ local tabUGCR6      = createTab("🎭 UGC R6", 6)
 local tabOlho       = createTab("👁 Vision", 7)
 
 -- CONTEÚDO
-local function createContent()
+function createContent()
 	local f = Instance.new("ScrollingFrame")
 	f.Size = UDim2.new(1, -S(46), 1, -(HEADER_HEIGHT + S(60)))
 	f.Position = UDim2.new(0, 5, 0, HEADER_HEIGHT + S(48))
@@ -332,7 +332,7 @@ local contentUGCR6      = createContent()
 local contentOlho       = createContent()
 contentEscalada.Visible = true
 
-local function updateCanvasSize(frame)
+function updateCanvasSize(frame)
 	local maxY = 0
 	for _, child in ipairs(frame:GetChildren()) do
 		if child:IsA("GuiObject") then
@@ -371,7 +371,7 @@ downArrow.TextSize = S(16)
 downArrow.Parent = scrollArrowFrame
 Instance.new("UICorner", downArrow).CornerRadius = UDim.new(0, 6)
 
-local function getActiveContent()
+function getActiveContent()
 	if contentEscalada.Visible then return contentEscalada end
 	if contentCheckpoint.Visible then return contentCheckpoint end
 	if contentCombat.Visible then return contentCombat end
@@ -386,13 +386,13 @@ end
 local SCROLL_STEP = S(85)
 local holdingUp, holdingDown = false, false
 
-local function scrollUp()
+function scrollUp()
 	local frame = getActiveContent()
 	updateCanvasSize(frame)
 	frame.CanvasPosition = Vector2.new(0, math.max(0, frame.CanvasPosition.Y - SCROLL_STEP))
 end
 
-local function scrollDown()
+function scrollDown()
 	local frame = getActiveContent()
 	updateCanvasSize(frame)
 	local maxY = math.max(0, frame.CanvasSize.Y.Offset - frame.AbsoluteWindowSize.Y)
@@ -426,7 +426,7 @@ statusLabel.TextSize = S(11)
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = mainFrame
 
-local function createButton(parent, text, y)
+function createButton(parent, text, y)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, -8, 0, BTN_H)
 	btn.Position = UDim2.new(0, 0, 0, y)
@@ -444,7 +444,7 @@ local function createButton(parent, text, y)
 	return btn
 end
 
-local function createTextBox(parent, placeholder, y)
+function createTextBox(parent, placeholder, y)
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.new(1, -8, 0, S(34))
 	box.Position = UDim2.new(0, 0, 0, y)
@@ -467,7 +467,7 @@ end
 
 -- BOTÕES
 local y = 0
-local function nextY()
+function nextY()
 	local cur = y
 	y = y + BTN_GAP
 	return cur
@@ -563,7 +563,7 @@ crosshair.BackgroundTransparency = 1
 crosshair.Visible = false
 crosshair.Parent = screenGui
 
-local function makeLine(parent, size, pos, color)
+function makeLine(parent, size, pos, color)
 	local l = Instance.new("Frame")
 	l.Size = size
 	l.Position = pos
@@ -627,7 +627,7 @@ aimDot.BorderSizePixel = 0
 aimDot.Parent = aimCrosshair
 Instance.new("UICorner", aimDot).CornerRadius = UDim.new(1, 0)
 
-local function updateCrosshairs()
+function updateCrosshairs()
 	crosshair.Visible = isAiming and not portalAimEnabled and not customCrosshairEnabled
 	portalCrosshair.Visible = portalAimEnabled
 	aimCrosshair.Visible = customCrosshairEnabled or (aimbotEnabled and not portalAimEnabled)
@@ -641,7 +641,7 @@ portalButtonsGui.IgnoreGuiInset = true
 portalButtonsGui.Enabled = false
 portalButtonsGui.Parent = player:WaitForChild("PlayerGui")
 
-local function makePortalButton(text, y, bgColor, strokeColor)
+function makePortalButton(text, y, bgColor, strokeColor)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(0, S(74), 0, S(58))
 	btn.Position = UDim2.new(1, -S(90), 1, y)
@@ -666,7 +666,7 @@ local yellowPortalBtn  = makePortalButton("YEL\nEXIT", -S(210), Color3.fromRGB(1
 local greenPortalBtn   = makePortalButton("GRN\nENTER", -S(135), Color3.fromRGB(0, 110, 25), Color3.fromRGB(0, 255, 90))
 
 -- NOTIFY
-local function notify(msg)
+function notify(msg)
 	local n = Instance.new("ScreenGui")
 	n.ResetOnSpawn = false
 	n.Parent = player.PlayerGui
@@ -698,7 +698,7 @@ local function notify(msg)
 end
 
 -- FILTRO ESCALADA
-local function getClimbFilter(character)
+function getClimbFilter(character)
 	local filter = {character}
 	for _, ladder in ipairs(ladders) do table.insert(filter, ladder) end
 	for _, plr in pairs(Players:GetPlayers()) do
@@ -708,7 +708,7 @@ local function getClimbFilter(character)
 end
 
 -- ESCALADA
-local function getWallHeight(hitPos, normal, rayParams)
+function getWallHeight(hitPos, normal, rayParams)
 	local height = 5
 	for yy = 1, MAX_HEIGHT, 0.9 do
 		local origin = hitPos + normal * 2.2 + Vector3.new(0, yy, 0)
@@ -720,7 +720,7 @@ local function getWallHeight(hitPos, normal, rayParams)
 	return clamp(height + 6, 8, MAX_HEIGHT)
 end
 
-local function buildTruss(hitPos, normal, character)
+function buildTruss(hitPos, normal, character)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return nil, 0 end
 
@@ -763,7 +763,7 @@ local function buildTruss(hitPos, normal, character)
 	return model, height
 end
 
-local function createLadderManual()
+function createLadderManual()
 	local character = player.Character
 	if not character then return end
 	local unitRay = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
@@ -779,7 +779,7 @@ local function createLadderManual()
 	if model then notify("Truss criada (" .. string.format("%.1f", height) .. ")") end
 end
 
-local function tryAutoLadder()
+function tryAutoLadder()
 	if not autoEnabled then return end
 	local now = tick()
 	if now - lastAutoTime < AUTO_COOLDOWN then return end
@@ -810,7 +810,7 @@ local function tryAutoLadder()
 end
 
 -- PORTAIS
-local function fixCharacterAfterTeleport(char)
+function fixCharacterAfterTeleport(char)
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hum or not hrp then return end
@@ -824,7 +824,7 @@ local function fixCharacterAfterTeleport(char)
 	hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 end
 
-local function createPortal(color, position, normal)
+function createPortal(color, position, normal)
 	local portal = Instance.new("Part")
 	portal.Size = Vector3.new(6, 8, 0.4)
 	portal.Anchored = true
@@ -842,7 +842,7 @@ local function createPortal(color, position, normal)
 	return portal
 end
 
-local function getAimHit()
+function getAimHit()
 	local unitRay = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {player.Character}
@@ -850,7 +850,7 @@ local function getAimHit()
 	return workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, params)
 end
 
-local function spawnGreenPortal()
+function spawnGreenPortal()
 	local result = getAimHit()
 	if not result then notify("Mire em uma superfície") return end
 	if greenPortal and greenPortal.Parent then greenPortal:Destroy() end
@@ -875,7 +875,7 @@ local function spawnGreenPortal()
 	end)
 end
 
-local function spawnYellowPortal()
+function spawnYellowPortal()
 	local result = getAimHit()
 	if not result then notify("Mire em uma superfície") return end
 	if yellowPortal and yellowPortal.Parent then yellowPortal:Destroy() end
@@ -900,13 +900,13 @@ local function spawnYellowPortal()
 	end)
 end
 
-local function removeAllPortals()
+function removeAllPortals()
 	if greenPortal and greenPortal.Parent then greenPortal:Destroy() greenPortal = nil end
 	if yellowPortal and yellowPortal.Parent then yellowPortal:Destroy() yellowPortal = nil end
 	notify("Portais removidos")
 end
 
-local function togglePortalAim()
+function togglePortalAim()
 	portalAimEnabled = not portalAimEnabled
 	if portalAimEnabled then
 		portalBtn.Text = "Portais: ON"
@@ -925,7 +925,7 @@ yellowPortalBtn.MouseButton1Click:Connect(spawnYellowPortal)
 removePortalsBtn.MouseButton1Click:Connect(removeAllPortals)
 
 -- ANTI SIT / NOCLIP / MOVE
-local function toggleAntiSit()
+function toggleAntiSit()
 	antiSitEnabled = not antiSitEnabled
 	if antiSitConnection then antiSitConnection:Disconnect() antiSitConnection = nil end
 	if antiSitEnabled then
@@ -957,7 +957,7 @@ local function toggleAntiSit()
 	end
 end
 
-local function toggleNoclip()
+function toggleNoclip()
 	noclipEnabled = not noclipEnabled
 	if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
 	if noclipEnabled then
@@ -983,7 +983,7 @@ local function toggleNoclip()
 	end
 end
 
-local function applyMovement()
+function applyMovement()
 	local speed = tonumber(speedBox.Text)
 	if speed and speed > 0 then customSpeed = speed end
 	if moveConnection then moveConnection:Disconnect() moveConnection = nil end
@@ -998,7 +998,7 @@ local function applyMovement()
 end
 
 -- AIMBOT + AUTO SHOT + CROSSHAIR AIM
-local function getClosestTarget()
+function getClosestTarget()
 	local closest, smallest = nil, aimFOV
 	local camLook = camera.CFrame.LookVector
 	local camPos = camera.CFrame.Position
@@ -1023,7 +1023,7 @@ local function getClosestTarget()
 	return closest
 end
 
-local function doAutoShot(target)
+function doAutoShot(target)
 	if not target or not target.Character then return end
 	local now = tick()
 	if now - lastShotTime < SHOT_COOLDOWN then return end
@@ -1045,7 +1045,7 @@ local function doAutoShot(target)
 end
 
 -- FUNÇÕES GERAIS (resumidas)
-local function findPlayerByName(name)
+function findPlayerByName(name)
 	if not name or name == "" then return nil end
 	name = string.lower(name:gsub("%s+", ""))
 	for _, plr in pairs(Players:GetPlayers()) do
@@ -1057,7 +1057,7 @@ local function findPlayerByName(name)
 	return nil
 end
 
-local function stopSpectate()
+function stopSpectate()
 	spectateEnabled = false
 	spectateTarget = nil
 	spectateBtn.Text = "Ver visão: OFF"
@@ -1069,7 +1069,7 @@ local function stopSpectate()
 	camera.CameraType = Enum.CameraType.Custom
 end
 
-local function toggleSpectate()
+function toggleSpectate()
 	if spectateEnabled then stopSpectate() notify("Visão própria restaurada") return end
 	local target = findPlayerByName(spectateBox.Text)
 	if not target or not target.Character then notify("Jogador não encontrado") return end
@@ -1082,7 +1082,7 @@ local function toggleSpectate()
 	notify("Vendo visão de " .. target.Name)
 end
 
-local function tpToName()
+function tpToName()
 	local target = findPlayerByName(tpNameBox.Text)
 	if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
 		notify("Jogador não encontrado") return
@@ -1093,7 +1093,7 @@ local function tpToName()
 	notify("TP para " .. target.Name)
 end
 
-local function clearESP()
+function clearESP()
 	for plr, data in pairs(espObjects) do
 		if data.highlight then pcall(function() data.highlight:Destroy() end) end
 		if data.billboard then pcall(function() data.billboard:Destroy() end) end
@@ -1103,7 +1103,7 @@ local function clearESP()
 	espObjects = {}
 end
 
-local function updateESP()
+function updateESP()
 	if not (espEnabled or boxEspEnabled or tracersEnabled or distanceEnabled) then clearESP() return end
 	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	for _, plr in pairs(Players:GetPlayers()) do
@@ -1245,7 +1245,7 @@ local function updateESP()
 	end
 end
 
-local function toggleFullbright()
+function toggleFullbright()
 	if not fullbrightEnabled then
 		originalLighting = {
 			Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime,
@@ -1272,7 +1272,7 @@ local function toggleFullbright()
 	end
 end
 
-local function toggleXray()
+function toggleXray()
 	xrayEnabled = not xrayEnabled
 	if xrayConnection then xrayConnection:Disconnect() xrayConnection = nil end
 	if xrayEnabled then
@@ -1296,7 +1296,7 @@ local function toggleXray()
 	end
 end
 
-local function updateJumpConnection()
+function updateJumpConnection()
 	if jumpConnection then jumpConnection:Disconnect() jumpConnection = nil end
 	if infiniteJumpEnabled then
 		jumpConnection = UserInputService.JumpRequest:Connect(function()
@@ -1306,7 +1306,7 @@ local function updateJumpConnection()
 	end
 end
 
-local function createCheckpointMarker(cf)
+function createCheckpointMarker(cf)
 	if checkpointMarker and checkpointMarker.Parent then checkpointMarker:Destroy() end
 	local marker = Instance.new("Part")
 	marker.Size = Vector3.new(4, 0.3, 4)
@@ -1320,7 +1320,7 @@ local function createCheckpointMarker(cf)
 	checkpointMarker = marker
 end
 
-local function saveCheckpoint()
+function saveCheckpoint()
 	local char = player.Character
 	if not char then return end
 	local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -1330,7 +1330,7 @@ local function saveCheckpoint()
 	notify("Checkpoint salvo")
 end
 
-local function teleportToCheckpoint()
+function teleportToCheckpoint()
 	if not checkpointPos then notify("Sem checkpoint") return end
 	local char = player.Character
 	if not char then return end
@@ -1340,14 +1340,14 @@ local function teleportToCheckpoint()
 	notify("Teleportado")
 end
 
-local function clearCheckpoint()
+function clearCheckpoint()
 	checkpointPos = nil
 	if checkpointMarker then checkpointMarker:Destroy() checkpointMarker = nil end
 	notify("Checkpoint limpo")
 end
 
 -- SWITCH TAB
-local function switchTab(cat)
+function switchTab(cat)
 	currentCategory = cat
 	contentEscalada.Visible = cat == "Escalada"
 	contentCheckpoint.Visible = cat == "Checkpoint"
@@ -1596,7 +1596,7 @@ tpNameBtn.MouseButton1Click:Connect(tpToName)
 
 -- Minimize
 local originalSize = mainFrame.Size
-local function toggleMinimize()
+function toggleMinimize()
 	menuVisible = not menuVisible
 	if not menuVisible then
 		contentEscalada.Visible = false
