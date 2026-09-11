@@ -1596,7 +1596,7 @@ tpNameBtn.MouseButton1Click:Connect(tpToName)
 
 -- Minimize
 local originalSize = mainFrame.Size
-minimizeBtn.MouseButton1Click:Connect(function()
+local function toggleMinimize()
 	menuVisible = not menuVisible
 	if not menuVisible then
 		contentEscalada.Visible = false
@@ -1620,12 +1620,14 @@ minimizeBtn.MouseButton1Click:Connect(function()
 		minimizeBtn.Text = "−"
 		switchTab(currentCategory)
 	end
-end)
+end
+
+minimizeBtn.MouseButton1Click:Connect(toggleMinimize)
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.H then
-		minimizeBtn.MouseButton1Click:Fire()
+		toggleMinimize()
 	end
 end)
 
