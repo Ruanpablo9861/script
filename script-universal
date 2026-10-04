@@ -2,8 +2,9 @@
   MODMENU TUFFO - VERSÃO MOBILE + AIMBOT VARIANTS (100% LUA)
   Auto Shot | Crosshair Aimbot | Mira Diferenciada
   Adaptado para todos os modelos de celular
+  + Sistema Movimento+ (FirstPerson + Crouch + Sprint)
 ]]
-
+ 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -11,33 +12,33 @@ local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
 local GuiService = game:GetService("GuiService")
-
+ 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
-
+ 
 -- clamp compatível com Lua puro (substitui math.clamp do Luau)
 function clamp(n, min, max)
 	if n < min then return min end
 	if n > max then return max end
 	return n
 end
-
+ 
 -- ===================== DETECÇÃO MOBILE =====================
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local screenSize = camera.ViewportSize
 local scale = clamp(math.min(screenSize.X, screenSize.Y) / 800, 0.75, 1.35)
-
+ 
 function S(n)
 	return math.floor(n * scale)
 end
-
+ 
 local HEADER_HEIGHT = isMobile and S(52) or S(42)
 local BTN_H = isMobile and S(40) or S(36)
 local BTN_GAP = isMobile and S(44) or S(42)
 local FRAME_W = isMobile and math.min(S(380), screenSize.X - 20) or S(345)
 local FRAME_H = isMobile and math.min(S(720), screenSize.Y - 40) or S(660)
-
+ 
 -- ===================== VARIÁVEIS =====================
 local isAiming = false
 local autoEnabled = false
@@ -45,7 +46,7 @@ local infiniteJumpEnabled = false
 local noclipEnabled = false
 local menuVisible = true
 local currentCategory = "Escalada"
-
+ 
 local ladders = {}
 local lastAutoLadder = nil
 local lastAutoPos = Vector3.new(0, 0, 0)
@@ -55,7 +56,7 @@ local checkpointMarker = nil
 local jumpConnection = nil
 local noclipConnection = nil
 local autoRespawnToCheckpoint = true
-
+ 
 local aimbotEnabled = false
 local autoShotEnabled = false
 local crosshairAimbotEnabled = false
@@ -71,7 +72,7 @@ local espObjects = {}
 local teamCheckEnabled = false
 local lastShotTime = 0
 local SHOT_COOLDOWN = 0.12
-
+ 
 local tpToolInstance = nil
 local fullbrightEnabled = false
 local fullbrightConnection = nil
@@ -81,24 +82,40 @@ local antiSitConnection = nil
 local xrayEnabled = false
 local xrayConnection = nil
 local xrayParts = {}
-
+ 
 local portalAimEnabled = false
 local greenPortal = nil
 local yellowPortal = nil
 local portalDebounce = false
-
+ 
 local spectateEnabled = false
 local spectateTarget = nil
 local customSpeed = nil
 local moveConnection = nil
-
+ 
+-- Movimento+ (FP + Crouch + Sprint)
+local moveSystemEnabled = false
+local isFirstPerson = false
+local isCrouching = false
+local isSprinting = false
+local currentCrouchTrack = nil
+local currentSprintTrack = nil
+local NORMAL_SPEED = 16
+local SPRINT_SPEED = 28
+local CROUCH_SPEED = 8
+local CROUCH_HEIGHT = 1.0
+local NORMAL_HEIGHT = 2
+local CROUCH_ANIM_ID = 10921301576   -- troque pelo ID da sua animação
+local SPRINT_ANIM_ID = 10921288909   -- troque pelo ID da sua animação
+local moveButtonsGui = nil
+ 
 local MAX_HEIGHT = 200
 local TRUSS_WIDTH = 3.4
 local TRUSS_DEPTH = 0.9
 local AUTO_DISTANCE = 8
 local AUTO_COOLDOWN = 1.4
 local AUTO_MIN_MOVE = 3
-
+ 
 local COL_BG      = Color3.fromRGB(8, 10, 12)
 local COL_PANEL   = Color3.fromRGB(12, 16, 18)
 local COL_GREEN   = Color3.fromRGB(0, 255, 100)
@@ -107,7 +124,7 @@ local COL_BTN     = Color3.fromRGB(14, 22, 18)
 local COL_BORDER  = Color3.fromRGB(0, 100, 45)
 local COL_PORTAL  = Color3.fromRGB(255, 160, 40)
 local COL_AIM     = Color3.fromRGB(255, 50, 80) -- Mira diferenciada (vermelho)
-
+ 
 local DrawingAvailable = false
 pcall(function()
 	if Drawing and Drawing.new then
@@ -115,7 +132,7 @@ pcall(function()
 		if test then test:Remove() DrawingAvailable = true end
 	end
 end)
-
+ 
 -- ===================== LOADING =====================
 function showLoadingScreen(callback)
 	local gui = Instance.new("ScreenGui")
@@ -124,13 +141,13 @@ function showLoadingScreen(callback)
 	gui.DisplayOrder = 999999
 	gui.ResetOnSpawn = false
 	gui.Parent = player:WaitForChild("PlayerGui")
-
+ 
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.new(1, 0, 1, 0)
 	bg.BackgroundColor3 = Color3.fromRGB(4, 6, 6)
 	bg.BorderSizePixel = 0
 	bg.Parent = gui
-
+ 
 	local title = Instance.new("TextLabel")
 	title.Size = UDim2.new(1, 0, 0, S(28))
 	title.Position = UDim2.new(0, 0, 0.28, 0)
@@ -140,7 +157,7 @@ function showLoadingScreen(callback)
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = S(22)
 	title.Parent = bg
-
+ 
 	local sub = Instance.new("TextLabel")
 	sub.Size = UDim2.new(1, 0, 0, S(18))
 	sub.Position = UDim2.new(0, 0, 0.34, 0)
@@ -150,7 +167,7 @@ function showLoadingScreen(callback)
 	sub.Font = Enum.Font.Code
 	sub.TextSize = S(13)
 	sub.Parent = bg
-
+ 
 	local barBg = Instance.new("Frame")
 	barBg.Size = UDim2.new(0.45, 0, 0, S(5))
 	barBg.Position = UDim2.new(0.275, 0, 0.42, 0)
@@ -158,14 +175,14 @@ function showLoadingScreen(callback)
 	barBg.BorderSizePixel = 0
 	barBg.Parent = bg
 	Instance.new("UICorner", barBg).CornerRadius = UDim.new(0, 3)
-
+ 
 	local bar = Instance.new("Frame")
 	bar.Size = UDim2.new(0, 0, 1, 0)
 	bar.BackgroundColor3 = COL_GREEN
 	bar.BorderSizePixel = 0
 	bar.Parent = barBg
 	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 3)
-
+ 
 	task.spawn(function()
 		for i = 1, 5 do
 			TweenService:Create(bar, TweenInfo.new(0.25), {Size = UDim2.new(i/5, 0, 1, 0)}):Play()
@@ -176,7 +193,7 @@ function showLoadingScreen(callback)
 		if callback then callback() end
 	end)
 end
-
+ 
 -- ===================== GUI =====================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ModMenuTuffo"
@@ -185,7 +202,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.IgnoreGuiInset = true
 screenGui.Enabled = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
-
+ 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, FRAME_W, 0, FRAME_H)
 mainFrame.Position = UDim2.new(0, 10, 0, 20)
@@ -194,12 +211,12 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Parent = screenGui
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
-
+ 
 local stroke = Instance.new("UIStroke")
 stroke.Thickness = 1.5
 stroke.Color = COL_GREEN
 stroke.Parent = mainFrame
-
+ 
 -- HEADER
 local dragBar = Instance.new("Frame")
 dragBar.Size = UDim2.new(1, 0, 0, HEADER_HEIGHT)
@@ -208,14 +225,14 @@ dragBar.BorderSizePixel = 0
 dragBar.Active = true
 dragBar.Parent = mainFrame
 Instance.new("UICorner", dragBar).CornerRadius = UDim.new(0, 10)
-
+ 
 local dragFix = Instance.new("Frame")
 dragFix.Size = UDim2.new(1, 0, 0, 12)
 dragFix.Position = UDim2.new(0, 0, 1, -12)
 dragFix.BackgroundColor3 = COL_PANEL
 dragFix.BorderSizePixel = 0
 dragFix.Parent = dragBar
-
+ 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -50, 1, 0)
 title.Position = UDim2.new(0, 12, 0, 0)
@@ -226,7 +243,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = isMobile and S(13) or S(15)
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = dragBar
-
+ 
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, S(36), 0, S(32))
 minimizeBtn.Position = UDim2.new(1, -S(42), 0.5, -S(16))
@@ -237,15 +254,15 @@ minimizeBtn.Font = Enum.Font.GothamBold
 minimizeBtn.TextSize = S(18)
 minimizeBtn.Parent = dragBar
 Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
-
+ 
 -- ARRASTE (mobile friendly)
 local dragging, dragStart, startPos = false, nil, nil
-
+ 
 function updateDrag(input)
 	local delta = input.Position - dragStart
 	mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
-
+ 
 dragBar.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = true
@@ -256,19 +273,19 @@ dragBar.InputBegan:Connect(function(input)
 		end)
 	end
 end)
-
+ 
 UserInputService.InputChanged:Connect(function(input)
 	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 		updateDrag(input)
 	end
 end)
-
+ 
 UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = false
 	end
 end)
-
+ 
 -- ABAS
 local tabFrame = Instance.new("ScrollingFrame")
 tabFrame.Size = UDim2.new(1, -10, 0, S(36))
@@ -279,7 +296,7 @@ tabFrame.ScrollBarThickness = 0
 tabFrame.ScrollingDirection = Enum.ScrollingDirection.X
 tabFrame.CanvasSize = UDim2.new(0, 640, 0, 0)
 tabFrame.Parent = mainFrame
-
+ 
 function createTab(text, order)
 	local tab = Instance.new("TextButton")
 	tab.Size = UDim2.new(0, S(74), 1, 0)
@@ -297,7 +314,7 @@ function createTab(text, order)
 	s.Parent = tab
 	return tab
 end
-
+ 
 local tabEscalada   = createTab("🧗 Escala", 0)
 local tabCheckpoint = createTab("📍 Check", 1)
 local tabCombat     = createTab("🎯 Combat", 2)
@@ -306,7 +323,7 @@ local tabProtecao   = createTab("🛡️ Prot", 4)
 local tabUGC        = createTab("🎭 UGC", 5)
 local tabUGCR6      = createTab("🎭 UGC R6", 6)
 local tabOlho       = createTab("👁 Vision", 7)
-
+ 
 -- CONTEÚDO
 function createContent()
 	local f = Instance.new("ScrollingFrame")
@@ -321,7 +338,7 @@ function createContent()
 	f.Parent = mainFrame
 	return f
 end
-
+ 
 local contentEscalada   = createContent()
 local contentCheckpoint = createContent()
 local contentCombat     = createContent()
@@ -331,7 +348,7 @@ local contentUGC        = createContent()
 local contentUGCR6      = createContent()
 local contentOlho       = createContent()
 contentEscalada.Visible = true
-
+ 
 function updateCanvasSize(frame)
 	local maxY = 0
 	for _, child in ipairs(frame:GetChildren()) do
@@ -342,14 +359,14 @@ function updateCanvasSize(frame)
 	end
 	frame.CanvasSize = UDim2.new(0, 0, 0, math.max(maxY + 280, 1100))
 end
-
+ 
 -- SETAS
 local scrollArrowFrame = Instance.new("Frame")
 scrollArrowFrame.Size = UDim2.new(0, S(36), 0, S(84))
 scrollArrowFrame.Position = UDim2.new(1, -S(40), 0, HEADER_HEIGHT + S(48))
 scrollArrowFrame.BackgroundTransparency = 1
 scrollArrowFrame.Parent = mainFrame
-
+ 
 local upArrow = Instance.new("TextButton")
 upArrow.Size = UDim2.new(1, 0, 0, S(38))
 upArrow.BackgroundColor3 = COL_BTN
@@ -359,7 +376,7 @@ upArrow.Font = Enum.Font.GothamBold
 upArrow.TextSize = S(16)
 upArrow.Parent = scrollArrowFrame
 Instance.new("UICorner", upArrow).CornerRadius = UDim.new(0, 6)
-
+ 
 local downArrow = Instance.new("TextButton")
 downArrow.Size = UDim2.new(1, 0, 0, S(38))
 downArrow.Position = UDim2.new(0, 0, 0, S(42))
@@ -370,7 +387,7 @@ downArrow.Font = Enum.Font.GothamBold
 downArrow.TextSize = S(16)
 downArrow.Parent = scrollArrowFrame
 Instance.new("UICorner", downArrow).CornerRadius = UDim.new(0, 6)
-
+ 
 function getActiveContent()
 	if contentEscalada.Visible then return contentEscalada end
 	if contentCheckpoint.Visible then return contentCheckpoint end
@@ -382,30 +399,30 @@ function getActiveContent()
 	if contentOlho.Visible then return contentOlho end
 	return contentEscalada
 end
-
+ 
 local SCROLL_STEP = S(85)
 local holdingUp, holdingDown = false, false
-
+ 
 function scrollUp()
 	local frame = getActiveContent()
 	updateCanvasSize(frame)
 	frame.CanvasPosition = Vector2.new(0, math.max(0, frame.CanvasPosition.Y - SCROLL_STEP))
 end
-
+ 
 function scrollDown()
 	local frame = getActiveContent()
 	updateCanvasSize(frame)
 	local maxY = math.max(0, frame.CanvasSize.Y.Offset - frame.AbsoluteWindowSize.Y)
 	frame.CanvasPosition = Vector2.new(0, math.min(maxY + 50, frame.CanvasPosition.Y + SCROLL_STEP))
 end
-
+ 
 upArrow.MouseButton1Down:Connect(function() holdingUp = true scrollUp() end)
 upArrow.MouseButton1Up:Connect(function() holdingUp = false end)
 upArrow.MouseLeave:Connect(function() holdingUp = false end)
 downArrow.MouseButton1Down:Connect(function() holdingDown = true scrollDown() end)
 downArrow.MouseButton1Up:Connect(function() holdingDown = false end)
 downArrow.MouseLeave:Connect(function() holdingDown = false end)
-
+ 
 task.spawn(function()
 	while true do
 		task.wait(0.09)
@@ -413,7 +430,7 @@ task.spawn(function()
 		if holdingDown then scrollDown() end
 	end
 end)
-
+ 
 -- STATUS + HELPERS
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, -12, 0, S(14))
@@ -425,7 +442,7 @@ statusLabel.Font = Enum.Font.Code
 statusLabel.TextSize = S(11)
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = mainFrame
-
+ 
 function createButton(parent, text, y)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, -8, 0, BTN_H)
@@ -443,7 +460,7 @@ function createButton(parent, text, y)
 	s.Parent = btn
 	return btn
 end
-
+ 
 function createTextBox(parent, placeholder, y)
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.new(1, -8, 0, S(34))
@@ -464,7 +481,7 @@ function createTextBox(parent, placeholder, y)
 	s.Parent = box
 	return box
 end
-
+ 
 -- BOTÕES
 local y = 0
 function nextY()
@@ -472,14 +489,14 @@ function nextY()
 	y = y + BTN_GAP
 	return cur
 end
-
+ 
 -- Escalada
 y = 0
 local aimBtn = createButton(contentEscalada, "Ativar Mira", nextY())
 local createBtn = createButton(contentEscalada, "Criar Truss", nextY())
 local autoBtn = createButton(contentEscalada, "Automática: OFF", nextY())
 local removeBtn = createButton(contentEscalada, "Remover Truss", nextY())
-
+ 
 -- Checkpoint
 y = 0
 local saveBtn = createButton(contentCheckpoint, "[1] Salvar Checkpoint", nextY())
@@ -490,7 +507,7 @@ local tptoolBtn = createButton(contentCheckpoint, "TP Tool: OFF", nextY())
 local invisibleBtn = createButton(contentCheckpoint, "Invisible V2", nextY())
 local portalBtn = createButton(contentCheckpoint, "Portais: OFF", nextY())
 local gravityGunBtn = createButton(contentCheckpoint, "Gravity Gun", nextY())
-
+ 
 -- Combat (com novas variantes de Aimbot)
 y = 0
 local aimbotBtn = createButton(contentCombat, "Aimbot: OFF", nextY())
@@ -504,7 +521,7 @@ local espBtn = createButton(contentCombat, "ESP: OFF", nextY())
 local boxEspBtn = createButton(contentCombat, "Box ESP: OFF", nextY())
 local tracersBtn = createButton(contentCombat, "Tracers: OFF", nextY())
 local distanceBtn = createButton(contentCombat, "Distance: OFF", nextY())
-
+ 
 -- Movimento
 y = 0
 local speedBox = createTextBox(contentMovimento, "Velocidade", nextY())
@@ -514,46 +531,47 @@ local gravityBtn = createButton(contentMovimento, "Zero Gravidade", nextY())
 local shiftLockBtn = createButton(contentMovimento, "Shift Lock", nextY())
 local noclipBtn = createButton(contentMovimento, "Noclip: OFF", nextY())
 local flyBtn = createButton(contentMovimento, "Fly", nextY())
-
+ 
 -- Proteção
 y = 0
 local antiFlingBtn = createButton(contentProtecao, "Anti Fling", nextY())
 local antiBangBtn = createButton(contentProtecao, "AntiBang", nextY())
 local boostFpsBtn = createButton(contentProtecao, "Boost FPS", nextY())
 local antiSitBtn = createButton(contentProtecao, "Anti Sit: OFF", nextY())
-
+ 
 -- UGC
 y = 0
 local ugcAnimBtn = createButton(contentUGC, "UGC Animations", nextY())
-local crouchBtn = createButton(contentUGC, "Crouch", nextY())
+local crouchBtnUGC = createButton(contentUGC, "Crouch", nextY())
 local jetbotBtn = createButton(contentUGC, "Jetbot", nextY())
 local adaptationBtn = createButton(contentUGC, "Sonic Exe", nextY())
 local goatBtn = createButton(contentUGC, "Goat Simulator", nextY())
 local amongUsBtn = createButton(contentUGC, "Among Us", nextY())
 local militaryBtn = createButton(contentUGC, "Military Bot", nextY())
-
+ 
 -- UGC R6
 y = 0
 local reanimateBtn = createButton(contentUGCR6, "Reanimate", nextY())
 local scp096Btn = createButton(contentUGCR6, "SCP-096 / Fling", nextY())
 local r6AnimsBtn = createButton(contentUGCR6, "R6 Animations Hub", nextY())
 local scp049Btn = createButton(contentUGCR6, "SCP-049", nextY())
-
+ 
 -- Vision
 y = 0
+local moveSysBtn = createButton(contentOlho, "Movimento+: OFF", nextY())
 local xrayBtn = createButton(contentOlho, "X-Ray: OFF", nextY())
 local fullbrightBtn = createButton(contentOlho, "Fullbright: OFF", nextY())
 local spectateBox = createTextBox(contentOlho, "Nome do jogador (visão)", nextY())
 local spectateBtn = createButton(contentOlho, "Ver visão: OFF", nextY())
 local tpNameBox = createTextBox(contentOlho, "Nome do jogador (TP)", nextY())
 local tpNameBtn = createButton(contentOlho, "TP por nome", nextY())
-
+ 
 task.defer(function()
 	for _, f in ipairs({contentEscalada, contentCheckpoint, contentCombat, contentMovimento, contentProtecao, contentUGC, contentUGCR6, contentOlho}) do
 		updateCanvasSize(f)
 	end
 end)
-
+ 
 -- ===================== MIRAS =====================
 -- Mira verde (Escalada)
 local crosshair = Instance.new("Frame")
@@ -562,7 +580,7 @@ crosshair.Position = UDim2.new(0.5, -S(10), 0.5, -S(10))
 crosshair.BackgroundTransparency = 1
 crosshair.Visible = false
 crosshair.Parent = screenGui
-
+ 
 function makeLine(parent, size, pos, color)
 	local l = Instance.new("Frame")
 	l.Size = size
@@ -575,7 +593,7 @@ makeLine(crosshair, UDim2.new(0, 2, 0, S(8)), UDim2.new(0.5, -1, 0, 0))
 makeLine(crosshair, UDim2.new(0, 2, 0, S(8)), UDim2.new(0.5, -1, 1, -S(8)))
 makeLine(crosshair, UDim2.new(0, S(8), 0, 2), UDim2.new(0, 0, 0.5, -1))
 makeLine(crosshair, UDim2.new(0, S(8), 0, 2), UDim2.new(1, -S(8), 0.5, -1))
-
+ 
 -- Mira Portal (laranja)
 local portalCrosshair = Instance.new("Frame")
 portalCrosshair.Size = UDim2.new(0, S(28), 0, S(28))
@@ -583,7 +601,7 @@ portalCrosshair.Position = UDim2.new(0.5, -S(14), 0.5, -S(14))
 portalCrosshair.BackgroundTransparency = 1
 portalCrosshair.Visible = false
 portalCrosshair.Parent = screenGui
-
+ 
 local portalDiamond = Instance.new("TextLabel")
 portalDiamond.Size = UDim2.new(1, 0, 1, 0)
 portalDiamond.BackgroundTransparency = 1
@@ -592,15 +610,15 @@ portalDiamond.TextColor3 = COL_PORTAL
 portalDiamond.Font = Enum.Font.GothamBold
 portalDiamond.TextSize = S(26)
 portalDiamond.Parent = portalCrosshair
-
--- MIRA DIFERENCIADA (vermelha) - Aimbot
+ 
+-- MIRA DIFERENCIADA (vermelha) - independente do Aimbot
 local aimCrosshair = Instance.new("Frame")
 aimCrosshair.Size = UDim2.new(0, S(32), 0, S(32))
 aimCrosshair.Position = UDim2.new(0.5, -S(16), 0.5, -S(16))
 aimCrosshair.BackgroundTransparency = 1
 aimCrosshair.Visible = false
 aimCrosshair.Parent = screenGui
-
+ 
 -- Círculo externo
 local aimRing = Instance.new("Frame")
 aimRing.Size = UDim2.new(1, 0, 1, 0)
@@ -611,13 +629,13 @@ ringStroke.Color = COL_AIM
 ringStroke.Thickness = 2
 ringStroke.Parent = aimRing
 Instance.new("UICorner", aimRing).CornerRadius = UDim.new(1, 0)
-
+ 
 -- Cruz vermelha
 makeLine(aimCrosshair, UDim2.new(0, 2, 0, S(10)), UDim2.new(0.5, -1, 0, S(2)), COL_AIM)
 makeLine(aimCrosshair, UDim2.new(0, 2, 0, S(10)), UDim2.new(0.5, -1, 1, -S(12)), COL_AIM)
 makeLine(aimCrosshair, UDim2.new(0, S(10), 0, 2), UDim2.new(0, S(2), 0.5, -1), COL_AIM)
 makeLine(aimCrosshair, UDim2.new(0, S(10), 0, 2), UDim2.new(1, -S(12), 0.5, -1), COL_AIM)
-
+ 
 -- Ponto central
 local aimDot = Instance.new("Frame")
 aimDot.Size = UDim2.new(0, S(4), 0, S(4))
@@ -626,13 +644,15 @@ aimDot.BackgroundColor3 = COL_AIM
 aimDot.BorderSizePixel = 0
 aimDot.Parent = aimCrosshair
 Instance.new("UICorner", aimDot).CornerRadius = UDim.new(1, 0)
-
+ 
+-- CORRIGIDO: a mira vermelha agora só aparece com "Mira Vermelha" ativada
+-- (antes ela ligava junto com o Aimbot)
 function updateCrosshairs()
 	crosshair.Visible = isAiming and not portalAimEnabled and not customCrosshairEnabled
 	portalCrosshair.Visible = portalAimEnabled
-	aimCrosshair.Visible = customCrosshairEnabled or (aimbotEnabled and not portalAimEnabled)
+	aimCrosshair.Visible = customCrosshairEnabled
 end
-
+ 
 -- BOTÕES PORTAL
 local portalButtonsGui = Instance.new("ScreenGui")
 portalButtonsGui.Name = "PortalButtons"
@@ -640,7 +660,7 @@ portalButtonsGui.ResetOnSpawn = false
 portalButtonsGui.IgnoreGuiInset = true
 portalButtonsGui.Enabled = false
 portalButtonsGui.Parent = player:WaitForChild("PlayerGui")
-
+ 
 function makePortalButton(text, y, bgColor, strokeColor)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(0, S(74), 0, S(58))
@@ -660,11 +680,11 @@ function makePortalButton(text, y, bgColor, strokeColor)
 	s.Parent = btn
 	return btn
 end
-
+ 
 local removePortalsBtn = makePortalButton("X\nCLEAR", -S(285), Color3.fromRGB(140, 20, 20), Color3.fromRGB(255, 60, 60))
 local yellowPortalBtn  = makePortalButton("YEL\nEXIT", -S(210), Color3.fromRGB(170, 130, 0), Color3.fromRGB(255, 220, 0))
 local greenPortalBtn   = makePortalButton("GRN\nENTER", -S(135), Color3.fromRGB(0, 110, 25), Color3.fromRGB(0, 255, 90))
-
+ 
 -- NOTIFY
 function notify(msg)
 	local n = Instance.new("ScreenGui")
@@ -696,7 +716,7 @@ function notify(msg)
 		n:Destroy()
 	end)
 end
-
+ 
 -- FILTRO ESCALADA
 function getClimbFilter(character)
 	local filter = {character}
@@ -706,7 +726,7 @@ function getClimbFilter(character)
 	end
 	return filter
 end
-
+ 
 -- ESCALADA
 function getWallHeight(hitPos, normal, rayParams)
 	local height = 5
@@ -719,19 +739,19 @@ function getWallHeight(hitPos, normal, rayParams)
 	end
 	return clamp(height + 6, 8, MAX_HEIGHT)
 end
-
+ 
 function buildTruss(hitPos, normal, character)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return nil, 0 end
-
+ 
 	local rayParams = RaycastParams.new()
 	rayParams.FilterDescendantsInstances = getClimbFilter(character)
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
+ 
 	local height = getWallHeight(hitPos, normal, rayParams)
 	local model = Instance.new("Model")
 	model.Name = "LocalClimbTruss"
-
+ 
 	local truss = Instance.new("TrussPart")
 	truss.Size = Vector3.new(TRUSS_WIDTH, height, TRUSS_DEPTH)
 	truss.Anchored = true
@@ -739,13 +759,13 @@ function buildTruss(hitPos, normal, character)
 	truss.Transparency = 0.65
 	truss.Material = Enum.Material.Wood
 	truss.Color = Color3.fromRGB(110, 75, 45)
-
+ 
 	local offset = normal * (TRUSS_DEPTH / 2 - 0.22)
 	local centerY = hrp.Position.Y - 2.8 + height / 2
 	local centerPos = Vector3.new(hitPos.X, centerY, hitPos.Z) + offset
 	truss.CFrame = CFrame.lookAt(centerPos, centerPos - normal)
 	truss.Parent = model
-
+ 
 	local topPlatform = Instance.new("Part")
 	topPlatform.Size = Vector3.new(TRUSS_WIDTH + 0.6, 0.35, 2.8)
 	topPlatform.Anchored = true
@@ -757,12 +777,12 @@ function buildTruss(hitPos, normal, character)
 	local topPos = Vector3.new(hitPos.X, topY, hitPos.Z) + normal * 0.15 - normal * 1.15
 	topPlatform.CFrame = CFrame.lookAt(topPos, topPos - normal) * CFrame.new(0, 0, -0.9)
 	topPlatform.Parent = model
-
+ 
 	model.Parent = workspace
 	table.insert(ladders, model)
 	return model, height
 end
-
+ 
 function createLadderManual()
 	local character = player.Character
 	if not character then return end
@@ -778,7 +798,7 @@ function createLadderManual()
 	local model, height = buildTruss(result.Position, result.Normal, character)
 	if model then notify("Truss criada (" .. string.format("%.1f", height) .. ")") end
 end
-
+ 
 function tryAutoLadder()
 	if not autoEnabled then return end
 	local now = tick()
@@ -808,7 +828,7 @@ function tryAutoLadder()
 		end
 	end
 end
-
+ 
 -- PORTAIS
 function fixCharacterAfterTeleport(char)
 	local hum = char:FindFirstChildOfClass("Humanoid")
@@ -823,7 +843,7 @@ function fixCharacterAfterTeleport(char)
 	hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 	hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 end
-
+ 
 function createPortal(color, position, normal)
 	local portal = Instance.new("Part")
 	portal.Size = Vector3.new(6, 8, 0.4)
@@ -841,7 +861,7 @@ function createPortal(color, position, normal)
 	light.Parent = portal
 	return portal
 end
-
+ 
 function getAimHit()
 	local unitRay = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 	local params = RaycastParams.new()
@@ -849,7 +869,7 @@ function getAimHit()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	return workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, params)
 end
-
+ 
 function spawnGreenPortal()
 	local result = getAimHit()
 	if not result then notify("Mire em uma superfície") return end
@@ -874,7 +894,7 @@ function spawnGreenPortal()
 		end
 	end)
 end
-
+ 
 function spawnYellowPortal()
 	local result = getAimHit()
 	if not result then notify("Mire em uma superfície") return end
@@ -899,13 +919,13 @@ function spawnYellowPortal()
 		end
 	end)
 end
-
+ 
 function removeAllPortals()
 	if greenPortal and greenPortal.Parent then greenPortal:Destroy() greenPortal = nil end
 	if yellowPortal and yellowPortal.Parent then yellowPortal:Destroy() yellowPortal = nil end
 	notify("Portais removidos")
 end
-
+ 
 function togglePortalAim()
 	portalAimEnabled = not portalAimEnabled
 	if portalAimEnabled then
@@ -919,11 +939,11 @@ function togglePortalAim()
 	end
 	updateCrosshairs()
 end
-
+ 
 greenPortalBtn.MouseButton1Click:Connect(spawnGreenPortal)
 yellowPortalBtn.MouseButton1Click:Connect(spawnYellowPortal)
 removePortalsBtn.MouseButton1Click:Connect(removeAllPortals)
-
+ 
 -- ANTI SIT / NOCLIP / MOVE
 function toggleAntiSit()
 	antiSitEnabled = not antiSitEnabled
@@ -956,7 +976,7 @@ function toggleAntiSit()
 		end
 	end
 end
-
+ 
 function toggleNoclip()
 	noclipEnabled = not noclipEnabled
 	if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
@@ -982,7 +1002,7 @@ function toggleNoclip()
 		end
 	end
 end
-
+ 
 function applyMovement()
 	local speed = tonumber(speedBox.Text)
 	if speed and speed > 0 then customSpeed = speed end
@@ -996,7 +1016,7 @@ function applyMovement()
 	end)
 	notify("Velocidade aplicada")
 end
-
+ 
 -- AIMBOT + AUTO SHOT + CROSSHAIR AIM
 function getClosestTarget()
 	local closest, smallest = nil, aimFOV
@@ -1022,14 +1042,13 @@ function getClosestTarget()
 	end
 	return closest
 end
-
+ 
 function doAutoShot(target)
 	if not target or not target.Character then return end
 	local now = tick()
 	if now - lastShotTime < SHOT_COOLDOWN then return end
 	lastShotTime = now
-
-	-- Tenta ativar a tool equipada
+ 
 	local char = player.Character
 	if not char then return end
 	local tool = char:FindFirstChildOfClass("Tool")
@@ -1038,12 +1057,11 @@ function doAutoShot(target)
 			tool:Activate()
 		end)
 	end
-	-- Também simula click (alguns jogos usam)
 	pcall(function()
 		mouse1click()
 	end)
 end
-
+ 
 -- FUNÇÕES GERAIS (resumidas)
 function findPlayerByName(name)
 	if not name or name == "" then return nil end
@@ -1056,7 +1074,7 @@ function findPlayerByName(name)
 	end
 	return nil
 end
-
+ 
 function stopSpectate()
 	spectateEnabled = false
 	spectateTarget = nil
@@ -1068,7 +1086,7 @@ function stopSpectate()
 	end
 	camera.CameraType = Enum.CameraType.Custom
 end
-
+ 
 function toggleSpectate()
 	if spectateEnabled then stopSpectate() notify("Visão própria restaurada") return end
 	local target = findPlayerByName(spectateBox.Text)
@@ -1081,7 +1099,7 @@ function toggleSpectate()
 	camera.CameraSubject = hum
 	notify("Vendo visão de " .. target.Name)
 end
-
+ 
 function tpToName()
 	local target = findPlayerByName(tpNameBox.Text)
 	if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
@@ -1092,7 +1110,7 @@ function tpToName()
 	myChar:PivotTo(target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
 	notify("TP para " .. target.Name)
 end
-
+ 
 function clearESP()
 	for plr, data in pairs(espObjects) do
 		if data.highlight then pcall(function() data.highlight:Destroy() end) end
@@ -1102,7 +1120,7 @@ function clearESP()
 	end
 	espObjects = {}
 end
-
+ 
 function updateESP()
 	if not (espEnabled or boxEspEnabled or tracersEnabled or distanceEnabled) then clearESP() return end
 	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -1244,7 +1262,7 @@ function updateESP()
 		end
 	end
 end
-
+ 
 function toggleFullbright()
 	if not fullbrightEnabled then
 		originalLighting = {
@@ -1271,7 +1289,7 @@ function toggleFullbright()
 		notify("Fullbright OFF")
 	end
 end
-
+ 
 function toggleXray()
 	xrayEnabled = not xrayEnabled
 	if xrayConnection then xrayConnection:Disconnect() xrayConnection = nil end
@@ -1295,7 +1313,7 @@ function toggleXray()
 		notify("X-Ray OFF")
 	end
 end
-
+ 
 function updateJumpConnection()
 	if jumpConnection then jumpConnection:Disconnect() jumpConnection = nil end
 	if infiniteJumpEnabled then
@@ -1305,7 +1323,7 @@ function updateJumpConnection()
 		end)
 	end
 end
-
+ 
 function createCheckpointMarker(cf)
 	if checkpointMarker and checkpointMarker.Parent then checkpointMarker:Destroy() end
 	local marker = Instance.new("Part")
@@ -1319,7 +1337,7 @@ function createCheckpointMarker(cf)
 	marker.Parent = workspace
 	checkpointMarker = marker
 end
-
+ 
 function saveCheckpoint()
 	local char = player.Character
 	if not char then return end
@@ -1329,7 +1347,7 @@ function saveCheckpoint()
 	createCheckpointMarker(checkpointPos)
 	notify("Checkpoint salvo")
 end
-
+ 
 function teleportToCheckpoint()
 	if not checkpointPos then notify("Sem checkpoint") return end
 	local char = player.Character
@@ -1339,13 +1357,173 @@ function teleportToCheckpoint()
 	hrp.CFrame = checkpointPos + Vector3.new(0, 3, 0)
 	notify("Teleportado")
 end
-
+ 
 function clearCheckpoint()
 	checkpointPos = nil
 	if checkpointMarker then checkpointMarker:Destroy() checkpointMarker = nil end
 	notify("Checkpoint limpo")
 end
-
+ 
+-- ===================== MOVIMENTO+ (FP + CROUCH + SPRINT) =====================
+function playAnimMove(humanoid, animId)
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	local anim = Instance.new("Animation")
+	anim.AnimationId = "rbxassetid://" .. tostring(animId)
+	local track = animator:LoadAnimation(anim)
+	track:Play()
+	return track
+end
+ 
+function setFirstPerson(enabled)
+	isFirstPerson = enabled
+	local char = player.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	if enabled then
+		player.CameraMode = Enum.CameraMode.LockFirstPerson
+		camera.CameraSubject = hum
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.LocalTransparencyModifier = (part.Name == "Head") and 1 or 0
+			end
+		end
+	else
+		player.CameraMode = Enum.CameraMode.Classic
+		camera.CameraSubject = hum
+		for _, part in pairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then part.LocalTransparencyModifier = 0 end
+		end
+	end
+end
+ 
+function setCrouchMove(enabled)
+	isCrouching = enabled
+	local char = player.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	if enabled then
+		isSprinting = false
+		if currentSprintTrack then currentSprintTrack:Stop() currentSprintTrack = nil end
+		hum.WalkSpeed = CROUCH_SPEED
+		hum.HipHeight = CROUCH_HEIGHT
+		if currentCrouchTrack then currentCrouchTrack:Stop() end
+		currentCrouchTrack = playAnimMove(hum, CROUCH_ANIM_ID)
+	else
+		hum.WalkSpeed = isSprinting and SPRINT_SPEED or NORMAL_SPEED
+		hum.HipHeight = NORMAL_HEIGHT
+		if currentCrouchTrack then currentCrouchTrack:Stop() currentCrouchTrack = nil end
+	end
+end
+ 
+function setSprintMove(enabled)
+	if isCrouching then return end
+	isSprinting = enabled
+	local char = player.Character
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	if enabled then
+		hum.WalkSpeed = SPRINT_SPEED
+		if currentCrouchTrack then currentCrouchTrack:Stop() currentCrouchTrack = nil end
+		if currentSprintTrack then currentSprintTrack:Stop() end
+		currentSprintTrack = playAnimMove(hum, SPRINT_ANIM_ID)
+	else
+		hum.WalkSpeed = NORMAL_SPEED
+		if currentSprintTrack then currentSprintTrack:Stop() currentSprintTrack = nil end
+	end
+end
+ 
+function resetMoveSystem()
+	isCrouching = false
+	isSprinting = false
+	if currentCrouchTrack then currentCrouchTrack:Stop() currentCrouchTrack = nil end
+	if currentSprintTrack then currentSprintTrack:Stop() currentSprintTrack = nil end
+	local char = player.Character
+	if char then
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.WalkSpeed = NORMAL_SPEED
+			hum.HipHeight = NORMAL_HEIGHT
+		end
+	end
+	setFirstPerson(false)
+end
+ 
+function destroyMoveButtons()
+	if moveButtonsGui then moveButtonsGui:Destroy() moveButtonsGui = nil end
+end
+ 
+function createMoveButtons()
+	destroyMoveButtons()
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "TuffoMoveButtons"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 500
+	gui.Parent = player:WaitForChild("PlayerGui")
+ 
+	local function makeButton(text, posY, colorActive)
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, S(70), 0, S(70))
+		btn.Position = UDim2.new(1, -S(95), 1, posY)
+		btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		btn.BackgroundTransparency = 0.25
+		btn.Text = text
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		btn.Font = Enum.Font.GothamBold
+		btn.TextSize = S(13)
+		btn.Parent = gui
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 14)
+		local s = Instance.new("UIStroke")
+		s.Thickness = 2
+		s.Color = COL_GREEN
+		s.Parent = btn
+		return btn
+	end
+ 
+	local sprintBtnM = makeButton("SPRINT", -S(210), Color3.fromRGB(0, 160, 80))
+	local crouchBtnM = makeButton("CROUCH", -S(295), Color3.fromRGB(0, 120, 200))
+	local fpBtnM     = makeButton("1ª PESSOA", -S(380), Color3.fromRGB(180, 80, 0))
+ 
+	sprintBtnM.MouseButton1Down:Connect(function() setSprintMove(true) sprintBtnM.BackgroundColor3 = Color3.fromRGB(0, 160, 80) end)
+	sprintBtnM.MouseButton1Up:Connect(function() setSprintMove(false) sprintBtnM.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end)
+	sprintBtnM.MouseLeave:Connect(function() if isSprinting then setSprintMove(false) sprintBtnM.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end end)
+ 
+	crouchBtnM.MouseButton1Click:Connect(function()
+		setCrouchMove(not isCrouching)
+		crouchBtnM.BackgroundColor3 = isCrouching and Color3.fromRGB(0, 120, 200) or Color3.fromRGB(40, 40, 40)
+	end)
+ 
+	fpBtnM.MouseButton1Click:Connect(function()
+		setFirstPerson(not isFirstPerson)
+		fpBtnM.BackgroundColor3 = isFirstPerson and Color3.fromRGB(180, 80, 0) or Color3.fromRGB(40, 40, 40)
+	end)
+ 
+	moveButtonsGui = gui
+end
+ 
+function toggleMoveSystem()
+	moveSystemEnabled = not moveSystemEnabled
+	if moveSystemEnabled then
+		moveSysBtn.Text = "Movimento+: ON"
+		notify("Movimento+ ON (C = crouch | Shift = sprint | V = 1ª pessoa)")
+		if UserInputService.TouchEnabled then
+			createMoveButtons()
+		end
+	else
+		moveSysBtn.Text = "Movimento+: OFF"
+		resetMoveSystem()
+		destroyMoveButtons()
+		notify("Movimento+ OFF")
+	end
+end
+ 
 -- SWITCH TAB
 function switchTab(cat)
 	currentCategory = cat
@@ -1357,7 +1535,7 @@ function switchTab(cat)
 	contentUGC.Visible = cat == "UGC"
 	contentUGCR6.Visible = cat == "UGC R6"
 	contentOlho.Visible = cat == "Olho"
-
+ 
 	local on = Color3.fromRGB(0, 55, 25)
 	tabEscalada.BackgroundColor3   = cat == "Escalada"   and on or COL_BTN
 	tabCheckpoint.BackgroundColor3 = cat == "Checkpoint" and on or COL_BTN
@@ -1367,12 +1545,12 @@ function switchTab(cat)
 	tabUGC.BackgroundColor3        = cat == "UGC"        and on or COL_BTN
 	tabUGCR6.BackgroundColor3      = cat == "UGC R6"     and on or COL_BTN
 	tabOlho.BackgroundColor3       = cat == "Olho"       and on or COL_BTN
-
+ 
 	local active = getActiveContent()
 	updateCanvasSize(active)
 	active.CanvasPosition = Vector2.new(0, 0)
 end
-
+ 
 tabEscalada.MouseButton1Click:Connect(function() switchTab("Escalada") end)
 tabCheckpoint.MouseButton1Click:Connect(function() switchTab("Checkpoint") end)
 tabCombat.MouseButton1Click:Connect(function() switchTab("Combat") end)
@@ -1381,7 +1559,7 @@ tabProtecao.MouseButton1Click:Connect(function() switchTab("Proteção") end)
 tabUGC.MouseButton1Click:Connect(function() switchTab("UGC") end)
 tabUGCR6.MouseButton1Click:Connect(function() switchTab("UGC R6") end)
 tabOlho.MouseButton1Click:Connect(function() switchTab("Olho") end)
-
+ 
 -- CONEXÕES
 aimBtn.MouseButton1Click:Connect(function()
 	isAiming = not isAiming
@@ -1399,7 +1577,7 @@ removeBtn.MouseButton1Click:Connect(function()
 	lastAutoLadder = nil
 	notify("Truss removidas")
 end)
-
+ 
 saveBtn.MouseButton1Click:Connect(saveCheckpoint)
 tpBtn.MouseButton1Click:Connect(teleportToCheckpoint)
 clearBtn.MouseButton1Click:Connect(clearCheckpoint)
@@ -1438,7 +1616,7 @@ gravityGunBtn.MouseButton1Click:Connect(function()
 	end)
 	notify("Gravity Gun carregado")
 end)
-
+ 
 -- Combat + Aimbot variants
 aimbotBtn.MouseButton1Click:Connect(function()
 	aimbotEnabled = not aimbotEnabled
@@ -1446,13 +1624,13 @@ aimbotBtn.MouseButton1Click:Connect(function()
 	updateCrosshairs()
 	notify(aimbotEnabled and "Aimbot ON" or "Aimbot OFF")
 end)
-
+ 
 autoShotBtn.MouseButton1Click:Connect(function()
 	autoShotEnabled = not autoShotEnabled
 	autoShotBtn.Text = autoShotEnabled and "Auto Shot: ON" or "Auto Shot: OFF"
 	notify(autoShotEnabled and "Auto Shot ON" or "Auto Shot OFF")
 end)
-
+ 
 crosshairAimBtn.MouseButton1Click:Connect(function()
 	crosshairAimbotEnabled = not crosshairAimbotEnabled
 	crosshairAimBtn.Text = crosshairAimbotEnabled and "Crosshair Aimbot: ON" or "Crosshair Aimbot: OFF"
@@ -1463,14 +1641,14 @@ crosshairAimBtn.MouseButton1Click:Connect(function()
 	updateCrosshairs()
 	notify(crosshairAimbotEnabled and "Crosshair Aimbot ON" or "Crosshair Aimbot OFF")
 end)
-
+ 
 customMiraBtn.MouseButton1Click:Connect(function()
 	customCrosshairEnabled = not customCrosshairEnabled
 	customMiraBtn.Text = customCrosshairEnabled and "Mira Vermelha: ON" or "Mira Vermelha: OFF"
 	updateCrosshairs()
 	notify(customCrosshairEnabled and "Mira Vermelha ON" or "Mira Vermelha OFF")
 end)
-
+ 
 partBtn.MouseButton1Click:Connect(function()
 	if aimPartName == "Head" then
 		aimPartName = "HumanoidRootPart"
@@ -1508,7 +1686,7 @@ distanceBtn.MouseButton1Click:Connect(function()
 	distanceEnabled = not distanceEnabled
 	distanceBtn.Text = distanceEnabled and "Distance: ON" or "Distance: OFF"
 end)
-
+ 
 applyMoveBtn.MouseButton1Click:Connect(applyMovement)
 jumpBtn.MouseButton1Click:Connect(function()
 	infiniteJumpEnabled = not infiniteJumpEnabled
@@ -1528,7 +1706,7 @@ flyBtn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FLY-GUI-V11-205450"))() end)
 	notify("Fly")
 end)
-
+ 
 antiFlingBtn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Gaze-anti-fling-ig-2-51386"))() end)
 	notify("Anti Fling")
@@ -1542,12 +1720,12 @@ boostFpsBtn.MouseButton1Click:Connect(function()
 	notify("Boost FPS")
 end)
 antiSitBtn.MouseButton1Click:Connect(toggleAntiSit)
-
+ 
 ugcAnimBtn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Fe-Ugc-Animations-242778"))() end)
 	notify("UGC Animations")
 end)
-crouchBtn.MouseButton1Click:Connect(function()
+crouchBtnUGC.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FE-R15-Crouch-Script-64510"))() end)
 	notify("Crouch carregado")
 end)
@@ -1571,7 +1749,7 @@ militaryBtn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Military-Bot-V2-FE-r15-239559"))() end)
 	notify("Military Bot carregado")
 end)
-
+ 
 reanimateBtn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-uh-reanimate-134885"))() end)
 	notify("Reanimate")
@@ -1588,12 +1766,14 @@ scp049Btn.MouseButton1Click:Connect(function()
 	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-SCP-049-FE-R6-GUI-Script-130754"))() end)
 	notify("SCP-049 carregado")
 end)
-
+ 
+-- Vision
+moveSysBtn.MouseButton1Click:Connect(toggleMoveSystem)
 xrayBtn.MouseButton1Click:Connect(toggleXray)
 fullbrightBtn.MouseButton1Click:Connect(toggleFullbright)
 spectateBtn.MouseButton1Click:Connect(toggleSpectate)
 tpNameBtn.MouseButton1Click:Connect(tpToName)
-
+ 
 -- Minimize
 local originalSize = mainFrame.Size
 function toggleMinimize()
@@ -1621,16 +1801,32 @@ function toggleMinimize()
 		switchTab(currentCategory)
 	end
 end
-
+ 
 minimizeBtn.MouseButton1Click:Connect(toggleMinimize)
-
+ 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.H then
 		toggleMinimize()
 	end
+	-- Atalhos do Movimento+ (só funcionam com o sistema ativado)
+	if moveSystemEnabled then
+		if input.KeyCode == Enum.KeyCode.C then
+			setCrouchMove(not isCrouching)
+		elseif input.KeyCode == Enum.KeyCode.LeftShift then
+			setSprintMove(true)
+		elseif input.KeyCode == Enum.KeyCode.V then
+			setFirstPerson(not isFirstPerson)
+		end
+	end
 end)
-
+ 
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.LeftShift and moveSystemEnabled then
+		setSprintMove(false)
+	end
+end)
+ 
 -- LOOPS
 RunService.Heartbeat:Connect(function()
 	if autoEnabled then tryAutoLadder() end
@@ -1639,7 +1835,7 @@ RunService.Heartbeat:Connect(function()
 		if hum then camera.CameraSubject = hum end
 	end
 end)
-
+ 
 RunService.RenderStepped:Connect(function()
 	-- Aimbot + Crosshair Aimbot
 	if aimbotEnabled or crosshairAimbotEnabled then
@@ -1654,12 +1850,12 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	end
-
+ 
 	if espEnabled or boxEspEnabled or tracersEnabled or distanceEnabled then
 		updateESP()
 	end
 end)
-
+ 
 player.CharacterAdded:Connect(function(newChar)
 	local hrp = newChar:WaitForChild("HumanoidRootPart", 8)
 	if not hrp then return end
@@ -1672,8 +1868,25 @@ player.CharacterAdded:Connect(function(newChar)
 		local hum = newChar:FindFirstChildOfClass("Humanoid")
 		if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false) end) end
 	end
+	-- Reset do Movimento+ no respawn
+	task.wait(0.2)
+	if moveSystemEnabled then
+		local hum = newChar:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.WalkSpeed = NORMAL_SPEED
+			hum.HipHeight = NORMAL_HEIGHT
+		end
+		isCrouching = false
+		isSprinting = false
+		currentCrouchTrack = nil
+		currentSprintTrack = nil
+		setFirstPerson(false)
+		if UserInputService.TouchEnabled then
+			createMoveButtons()
+		end
+	end
 end)
-
+ 
 -- START
 showLoadingScreen(function()
 	screenGui.Enabled = true
